@@ -5,6 +5,7 @@ from catalyst.dl.utils import UtilsFactory
 from catalyst.rl.offpolicy.algorithms.core import Algorithm
 from catalyst.rl.offpolicy.algorithms.utils import categorical_loss, \
     quantile_loss, soft_update
+from catalyst.rl.registeries import AGENTS
 
 
 class SAC(Algorithm):
@@ -305,29 +306,29 @@ class SAC(Algorithm):
         trainer_state_shape = (config_["shared"]["observation_size"], )
         trainer_action_shape = (config_["shared"]["action_size"], )
 
-        actor_fn = config_["actor"].pop("agent", None)
-        actor = Registry.get_agent(
-            agent=actor_fn,
+        actror_conf = config_["actor"]
+        actor = AGENTS.get_from_config(
+            "agent",
+            actror_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["actor"]
         )
 
-        critic_fn = config_["critic"].pop("agent", None)
-        critic = Registry.get_agent(
-            agent=critic_fn,
+        critic_conf = config_["critic"]
+        critic = AGENTS.get_from_config(
+            "agent",
+            critic_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["critic"]
         )
 
         n_critics = config_["algorithm"].pop("n_critics", 2)
         critics = [
-            Registry.get_agent(
-                agent=critic_fn,
+            AGENTS.get_from_config(
+                "agent",
+                critic_conf,
                 state_shape=actor_state_shape,
                 action_size=actor_action_size,
-                **config_["critic"]
             ) for _ in range(n_critics - 1)
         ]
 
@@ -364,12 +365,12 @@ class SAC(Algorithm):
         )
         actor_action_size = config_["shared"]["action_size"]
 
-        actor_fn = config_["actor"].pop("agent", None)
-        actor = Registry.get_agent(
-            agent=actor_fn,
+        agent_conf = config_["actor"]
+        actor = AGENTS.get_from_config(
+            "agent",
+            agent_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["actor"]
         )
 
         history_len = config_["shared"]["history_len"]

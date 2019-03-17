@@ -150,20 +150,7 @@ class Registry:
         """
         return Registry._inner_register("runner", *factories)
 
-    @staticmethod
-    def name2nn(name):
-        if name is None:
-            return None
-        elif isinstance(name, nn.Module):
-            return name
-        elif isinstance(name, str):
-            return _REGISTERS["module"][name]
-        else:
-            return name
 
-    @staticmethod
-    def get_fn(register_type: str, name: str):
-        return _REGISTERS[register_type][name]
 
     @staticmethod
     def get_agent(agent=None, **agent_params):
@@ -188,24 +175,6 @@ class Registry:
         return algorithm
 
     @staticmethod
-    def get_callback(callback=None, **callback_params):
-        if callback is None:
-            return None
-
-        callback = _REGISTERS["callback"][callback](**callback_params)
-        return callback
-
-    @staticmethod
-    def get_criterion(criterion=None, **criterion_params):
-        if criterion is None:
-            return None
-
-        criterion = _REGISTERS["criterion"][criterion](**criterion_params)
-        if torch.cuda.is_available():
-            criterion = criterion.cuda()
-        return criterion
-
-    @staticmethod
     def get_environment(environment=None, **environment_params):
         if environment is None:
             return None
@@ -217,58 +186,3 @@ class Registry:
                 **environment_params
             )
         return environment
-
-    @staticmethod
-    def get_grad_clip_fn(func=None, **grad_clip_params):
-        if func is None:
-            return None
-
-        func = torch.nn.utils.__dict__[func]
-        grad_clip_params = copy.deepcopy(grad_clip_params)
-        grad_clip_fn = lambda parameters: func(parameters, **grad_clip_params)
-        return grad_clip_fn
-
-    @staticmethod
-    def get_model(model, fp16=False, available_networks=None, **model_params):
-        fp16 = fp16 and torch.cuda.is_available()
-
-        available_networks = available_networks or {}
-        available_networks = {**available_networks, **_REGISTERS["model"]}
-
-        model = available_networks[model](**model_params)
-
-        if fp16:
-            model = Fp16Wrap(model)
-
-        return model
-
-    @staticmethod
-    def get_optimizer(model, fp16=False, optimizer=None, **optimizer_params):
-        if optimizer is None:
-            return None
-
-        master_params = list(
-            filter(lambda p: p.requires_grad, model.parameters())
-        )
-        if fp16:
-            assert torch.backends.cudnn.enabled, \
-                "fp16 mode requires cudnn backend to be enabled."
-            master_params = [
-                param.detach().clone().float() for param in master_params
-            ]
-            for param in master_params:
-                param.requires_grad = True
-
-        optimizer = _REGISTERS["optimizer"][optimizer](
-            master_params, **optimizer_params
-        )
-        return optimizer
-
-    @staticmethod
-    def get_scheduler(optimizer, scheduler=None, **scheduler_params):
-        if optimizer is None or scheduler is None:
-            return None
-        scheduler = torch.optim.lr_scheduler.__dict__[scheduler](
-            optimizer, **scheduler_params
-        )
-        return scheduler

@@ -1,7 +1,9 @@
 import os
 from typing import Dict
+
 import torch
 
+from catalyst.dl import utils
 from catalyst.dl.state import RunnerState
 from catalyst.dl.utils import UtilsFactory
 from .core import Callback
@@ -145,12 +147,18 @@ class OptimizerCallback(Callback):
         @TODO: docs
         """
         # hack to prevent cycle imports
-        from catalyst.contrib.registry import Registry
+        from catalyst.dl.registeries import GRAD_CLIPPERS
 
         grad_clip_params = grad_clip_params or {}
-        self.grad_clip_fn = Registry.get_grad_clip_fn(
-            **grad_clip_params
+        func, fn_params = GRAD_CLIPPERS.get_from_config(
+            "func", grad_clip_params, False
         )
+        if func:
+            self.grad_clip_fn = \
+                lambda params: func(params, **fn_params)
+        else:
+            self.grad_clip_fn = None
+
         self.fp16 = False
         self.fp16_grad_scale = fp16_grad_scale
         self.accumulation_steps = accumulation_steps

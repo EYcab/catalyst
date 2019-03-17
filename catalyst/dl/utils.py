@@ -1,5 +1,6 @@
 from typing import List, Tuple
 
+import copy
 import os
 import shutil
 
@@ -14,7 +15,30 @@ from catalyst.data.dataset import ListDataset
 from catalyst.dl.fp16 import Fp16Wrap
 
 
+def pregare_optimizer_params(params, fp16=False):
+    master_params = list(
+        filter(lambda p: p.requires_grad, params)
+    )
+
+    if fp16:
+        master_params = [
+            param.detach().clone().float() for param in master_params
+        ]
+        for param in master_params:
+            param.requires_grad = True
+
+    return master_params
+
+
+def assert_fp16_available():
+    assert torch.backends.cudnn.enabled, \
+        "fp16 mode requires cudnn backend to be enabled."
+
+
 class UtilsFactory:
+    pregare_optimizer_params = pregare_optimizer_params
+    assert_fp16_available = assert_fp16_available
+
     @staticmethod
     def create_loader(
         data_source,

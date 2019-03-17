@@ -7,6 +7,7 @@ from catalyst.rl.offpolicy.algorithms.utils import categorical_loss, \
     quantile_loss, soft_update
 
 
+
 class TD3(Algorithm):
     """
     Swiss Army knife TD3 algorithm.
@@ -277,7 +278,7 @@ class TD3(Algorithm):
     @classmethod
     def prepare_for_trainer(cls, config):
         # hack to prevent cycle dependencies
-        from catalyst.contrib.registry import Registry
+        from catalyst.rl.registeries import AGENTS
 
         config_ = config.copy()
 
@@ -292,40 +293,40 @@ class TD3(Algorithm):
         trainer_state_shape = (config_["shared"]["observation_size"], )
         trainer_action_shape = (config_["shared"]["action_size"], )
 
-        actor_fn = config_["actor"].pop("agent", None)
-        actor = Registry.get_agent(
-            agent=actor_fn,
+        actror_conf = config_["actor"]
+        actor = AGENTS.get_from_config(
+            "agent",
+            actror_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["actor"]
         )
 
-        critic_fn = config_["critic"].pop("agent", None)
-        critic = Registry.get_agent(
-            agent=critic_fn,
+        critic_conf = config_["critic"]
+        critic = AGENTS.get_from_config(
+            "agent",
+            critic_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["critic"]
         )
 
         n_critics = config_["algorithm"].pop("n_critics", 2)
         critics = [
-            Registry.get_agent(
-                agent=critic_fn,
+            AGENTS.get_from_config(
+                "agent",
+                critic_conf,
                 state_shape=actor_state_shape,
                 action_size=actor_action_size,
-                **config_["critic"]
             ) for _ in range(n_critics - 1)
         ]
 
         algorithm = cls(
-            **config_["algorithm"],
-            actor=actor,
-            critic=critic,
-            critics=critics,
-            n_step=n_step,
-            gamma=gamma
-        )
+                **config_["algorithm"],
+                actor=actor,
+                critic=critic,
+                critics=critics,
+                n_step=n_step,
+                gamma=gamma
+            )
 
         kwargs = {
             "algorithm": algorithm,
@@ -341,7 +342,7 @@ class TD3(Algorithm):
     @classmethod
     def prepare_for_sampler(cls, config):
         # hack to prevent cycle dependencies
-        from catalyst.contrib.registry import Registry
+        from catalyst.rl.registeries import AGENTS
 
         config_ = config.copy()
 
@@ -351,13 +352,14 @@ class TD3(Algorithm):
         )
         actor_action_size = config_["shared"]["action_size"]
 
-        actor_fn = config_["actor"].pop("agent", None)
-        actor = Registry.get_agent(
-            agent=actor_fn,
+        actror_conf = config_["actor"]
+        actor = AGENTS.get_from_config(
+            "agent",
+            actror_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["actor"]
         )
+
 
         history_len = config_["shared"]["history_len"]
 

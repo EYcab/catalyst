@@ -1,7 +1,9 @@
 import copy
 import torch
 
+from catalyst.dl.registeries import CRITERIONS
 from catalyst.dl.utils import UtilsFactory
+from catalyst.rl.registeries import AGENTS
 from .utils import soft_update
 
 
@@ -78,11 +80,13 @@ class Algorithm:
         self.actor_grad_clip_params = actor_grad_clip_params
         self.critic_grad_clip_params = critic_grad_clip_params
 
-        self.actor_criterion = Registry.get_criterion(
-            **(actor_loss_params or {})
+        self.actor_criterion = CRITERIONS.get_from_config(
+            "criterion",
+            actor_loss_params or {}
         )
-        self.critic_criterion = Registry.get_criterion(
-            **(critic_loss_params or {})
+        self.critic_criterion = CRITERIONS.get_from_config(
+            "criterion",
+            critic_loss_params or {}
         )
 
         self.actor_loss_params = actor_loss_params
@@ -220,23 +224,23 @@ class Algorithm:
         n_step = config_["shared"]["n_step"]
         gamma = config_["shared"]["gamma"]
         history_len = config_["shared"]["history_len"]
-        trainer_state_shape = (config_["shared"]["observation_size"], )
-        trainer_action_shape = (config_["shared"]["action_size"], )
+        trainer_state_shape = (config_["shared"]["observation_size"],)
+        trainer_action_shape = (config_["shared"]["action_size"],)
 
-        actor_fn = config_["actor"].pop("agent", None)
-        actor = Registry.get_agent(
-            agent=actor_fn,
+        actror_conf = config_["actor"]
+        actor = AGENTS.get_from_config(
+            "agent",
+            actror_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["actor"]
         )
 
-        critic_fn = config_["critic"].pop("agent", None)
-        critic = Registry.get_agent(
-            agent=critic_fn,
+        critic_conf = config_["critic"]
+        critic = AGENTS.get_from_config(
+            "agent",
+            critic_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["critic"]
         )
 
         algorithm = cls(
@@ -271,12 +275,12 @@ class Algorithm:
         )
         actor_action_size = config_["shared"]["action_size"]
 
-        actor_fn = config_["actor"].pop("agent", None)
-        actor = Registry.get_agent(
-            agent=actor_fn,
+        agent_conf = config_["actor"]
+        actor = AGENTS.get_from_config(
+            "agent",
+            agent_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
-            **config_["actor"]
         )
 
         history_len = config_["shared"]["history_len"]
