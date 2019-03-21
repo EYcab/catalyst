@@ -1,13 +1,12 @@
 import os
+import torch
 from typing import Dict
 
-import torch
-
-from catalyst.dl import utils
+from catalyst.dl.fp16 import Fp16Wrap, copy_params, copy_grads
 from catalyst.dl.state import RunnerState
 from catalyst.dl.utils import UtilsFactory
+from catalyst.rl.registry import GRAD_CLIPPERS
 from .core import Callback
-from catalyst.dl.fp16 import Fp16Wrap, copy_params, copy_grads
 from .utils import get_optimizer_momentum, scheduler_step
 
 
@@ -146,13 +145,10 @@ class OptimizerCallback(Callback):
         """
         @TODO: docs
         """
-        # hack to prevent cycle imports
-        from catalyst.dl.registeries import GRAD_CLIPPERS
 
         grad_clip_params = grad_clip_params or {}
-        func, fn_params = GRAD_CLIPPERS.get_from_config(
-            "func", grad_clip_params, False
-        )
+        func, fn_params = \
+            GRAD_CLIPPERS.get_from_config(grad_clip_params, False)
         if func:
             self.grad_clip_fn = \
                 lambda params: func(params, **fn_params)

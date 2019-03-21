@@ -1,13 +1,13 @@
 import pytest
 
 from catalyst.utils.registry import RegistryException
-from ..registry import *
-from .registery_foo import foo, bar
 from . import registery_foo as module
+from .registery_foo import foo
+from ..registry import Registry
 
 
 def test_add_function():
-    r = Registry()
+    r = Registry("")
 
     r.add(foo)
 
@@ -15,7 +15,7 @@ def test_add_function():
 
 
 def test_add_function_name_override():
-    r = Registry()
+    r = Registry("")
 
     r.add(foo, name="bar")
 
@@ -23,14 +23,14 @@ def test_add_function_name_override():
 
 
 def test_add_lambda_fail():
-    r = Registry()
+    r = Registry("")
 
     with pytest.raises(RegistryException):
         r.add(lambda x: x)
 
 
 def test_add_lambda_override():
-    r = Registry()
+    r = Registry("")
 
     r.add(lambda x: x, name="bar")
 
@@ -38,14 +38,14 @@ def test_add_lambda_override():
 
 
 def test_fail_multiple_with_name():
-    r = Registry()
+    r = Registry("")
 
     with pytest.raises(RegistryException):
         r.add(foo, foo, name="bar")
 
 
 def test_fail_double_add():
-    r = Registry()
+    r = Registry("")
     r.add(foo)
 
     with pytest.raises(RegistryException):
@@ -53,7 +53,7 @@ def test_fail_double_add():
 
 
 def test_instantiations():
-    r = Registry()
+    r = Registry("")
 
     r.add(foo)
 
@@ -68,7 +68,7 @@ def test_instantiations():
 
 
 def test_fail_instantiation():
-    r = Registry()
+    r = Registry("")
 
     r.add(foo)
 
@@ -79,7 +79,7 @@ def test_fail_instantiation():
 
 
 def test_decorator():
-    r = Registry()
+    r = Registry("")
 
     @r.add
     def bar():
@@ -89,14 +89,15 @@ def test_decorator():
 
 
 def test_kwargs():
-    r = Registry()
+    r = Registry("")
 
     r.add(bar=foo)
 
     r.get("bar")
 
+
 def test_add_module():
-    r = Registry()
+    r = Registry("")
 
     r.add_from_module(module)
 
@@ -104,11 +105,3 @@ def test_add_module():
 
     with pytest.raises(RegistryException):
         r.get_instance("bar")
-
-
-
-
-
-
-
-

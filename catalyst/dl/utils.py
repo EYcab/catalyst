@@ -1,42 +1,21 @@
-from typing import List, Tuple
+from collections import OrderedDict
 
-import copy
 import os
 import shutil
-
-from collections import OrderedDict
-from tensorboardX import SummaryWriter
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
+import torch.nn as nn
+from tensorboardX import SummaryWriter
 from torch.utils.data.dataloader import default_collate as default_collate_fn
+from typing import List, Tuple
 
 from catalyst.data.dataset import ListDataset
 from catalyst.dl.fp16 import Fp16Wrap
-
-
-def pregare_optimizer_params(params, fp16=False):
-    master_params = list(
-        filter(lambda p: p.requires_grad, params)
-    )
-
-    if fp16:
-        master_params = [
-            param.detach().clone().float() for param in master_params
-        ]
-        for param in master_params:
-            param.requires_grad = True
-
-    return master_params
-
-
-def assert_fp16_available():
-    assert torch.backends.cudnn.enabled, \
-        "fp16 mode requires cudnn backend to be enabled."
+from ..utils.model import prepare_optimizable_params, assert_fp16_available
 
 
 class UtilsFactory:
-    pregare_optimizer_params = pregare_optimizer_params
+    prepare_optimizable_params = prepare_optimizable_params
     assert_fp16_available = assert_fp16_available
 
     @staticmethod

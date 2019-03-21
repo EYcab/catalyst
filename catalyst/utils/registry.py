@@ -1,8 +1,9 @@
 import copy
-from typing import Dict, Callable, Any, Union, Type, Mapping, Tuple
+from typing import Dict, Callable, Any, Union, Type, Mapping, Tuple, List
 import warnings
 
 Factory = Union[Type, Callable[..., Any]]
+LateAddCallbak = Callable[["Registry"], None]
 
 
 class RegistryException(Exception):
@@ -15,8 +16,14 @@ class Registry:
     Universal class allowing to add and access various factories by name
     """
 
-    def __init__(self):
+    def __init__(self, default_name_key: str):
+        """
+        :param default_name_key: Default key containing factory name when
+        creating from config
+        """
+        self._name_key = default_name_key
         self._factories: Dict[str, Factory] = {}
+        self._late_add_callbacks: List[LateAddCallbak] = []
 
     @staticmethod
     def _get_factory_name(f, provided_name=None) -> str:
@@ -32,6 +39,12 @@ class Registry:
                     "Name for lambda factories msut be provided"
                 )
         return provided_name
+
+    def _do_late_add(self):
+        if self._late_add_callbacks:
+            for cb in self._late_add_callbacks:
+                cb(self)
+            self._late_add_callbacks = []
 
     def add(
         self,
@@ -60,10 +73,8 @@ class Registry:
             named_factories[self._get_factory_name(factory, name)] = factory
 
         if len(factories) > 0:
-            named_factories.update({
-                self._get_factory_name(f): f
-                for f in factories
-            })
+            new = {self._get_factory_name(f): f for f in factories}
+            named_factories.update(new)
 
         if len(named_factories) == 0:
             warnings.warn("No factories were provided!")
@@ -75,6 +86,17 @@ class Registry:
                 )
 
         self._factories.update(named_factories)
+
+    def late_add(self, cb: LateAddCallbak):
+        """
+        Allows to prevent cycle imports by delaying some imports till next
+            registry query
+
+        :param cb: Callback receives registry and must call it's methods to
+            register factories
+        :return:
+        """
+        self._late_add_callbacks.append(cb)
 
     def add_from_module(self, module) -> None:
         """
@@ -101,6 +123,9 @@ class Registry:
         :param factory name
         :returns Factory
         """
+
+        self._do_late_add()
+
         res = self._factories.get(name, None)
 
         if not res:
@@ -131,32 +156,38 @@ class Registry:
 
     def get_from_config(
         self,
-        name_key: str,
         config: Mapping[str, Any],
+        name_key: str = None,
         instantiate=True,
         **kwargs
-
     ) -> Union[Any, Tuple[Any, Mapping[str, Any]]]:
         """
         Creates instance based in configuration dict.
         If config[name_key] is None, None is returned.
 
-        :param name_key: key in config containing name of the factory
+        NOTE: original dict not changed in any way
+
         :param config: config dict
+        :param name_key: key in config containing name of the factory,
+            optional. If not provided, default from constructor used
         :param instantiate: If true, calls factory with rest of config dict
-        and kwargs, if false, returns factory and the rest of config and
-        kwargs joined
+            and kwargs, if false, returns factory and the rest of config and
+            kwargs joined
         :param kwargs: additional kwargs for factory
         :return: result of factory call or (factory, config) tuple
         """
+        name_key = name_key or self._name_key
+
         config = copy.deepcopy(dict(config))
         name = config.pop(name_key, None)
+
         if name:
             if instantiate:
                 return self.get_instance(name, **config, **kwargs)
             else:
                 config.update(kwargs)
                 return self.get(name), config
+
         return None if instantiate else None, config
 
 

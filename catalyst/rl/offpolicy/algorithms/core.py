@@ -1,9 +1,10 @@
 import copy
 import torch
 
-from catalyst.dl.registeries import CRITERIONS
 from catalyst.dl.utils import UtilsFactory
-from catalyst.rl.registeries import AGENTS
+from catalyst.rl.registry import AGENTS
+from catalyst.rl.registry import CRITERIONS, GRAD_CLIPPERS, OPTIMIZERS, \
+    SCHEDULERS
 from .utils import soft_update
 
 
@@ -30,9 +31,6 @@ class Algorithm:
         max_action=1.0,
         **kwargs
     ):
-        # hack to prevent cycle dependencies
-        from catalyst.contrib.registry import Registry
-
         self._device = UtilsFactory.prepare_device()
 
         self.actor = actor.to(self._device)
@@ -41,10 +39,10 @@ class Algorithm:
         self.target_actor = copy.deepcopy(actor).to(self._device)
         self.target_critic = copy.deepcopy(critic).to(self._device)
 
-        self.actor_optimizer = Registry.get_optimizer(
+        self.actor_optimizer = OPTIMIZERS.get_from_config(
             self.actor, **actor_optimizer_params
         )
-        self.critic_optimizer = Registry.get_optimizer(
+        self.critic_optimizer = OPTIMIZERS.get_from_config(
             self.critic, **critic_optimizer_params
         )
 
@@ -54,11 +52,11 @@ class Algorithm:
         actor_scheduler_params = actor_scheduler_params or {}
         critic_scheduler_params = critic_scheduler_params or {}
 
-        self.actor_scheduler = Registry.get_scheduler(
-            self.actor_optimizer, **actor_scheduler_params
+        self.actor_scheduler = SCHEDULERS.get_from_config(
+            actor_scheduler_params, optimizer=self.actor_optimizer
         )
-        self.critic_scheduler = Registry.get_scheduler(
-            self.critic_optimizer, **critic_scheduler_params
+        self.critic_scheduler = SCHEDULERS.get_from_config(
+            critic_scheduler_params, optimizer=self.critic_optimizer
         )
 
         self.actor_scheduler_params = actor_scheduler_params
@@ -70,22 +68,20 @@ class Algorithm:
         actor_grad_clip_params = actor_grad_clip_params or {}
         critic_grad_clip_params = critic_grad_clip_params or {}
 
-        self.actor_grad_clip_fn = Registry.get_grad_clip_fn(
-            **actor_grad_clip_params
+        self.actor_grad_clip_fn, _ = GRAD_CLIPPERS.get_from_config(
+            actor_grad_clip_params, instantiate=False
         )
-        self.critic_grad_clip_fn = Registry.get_grad_clip_fn(
-            **critic_grad_clip_params
+        self.critic_grad_clip_fn, _ = GRAD_CLIPPERS.get_from_config(
+            critic_grad_clip_params, instantiate=False
         )
 
         self.actor_grad_clip_params = actor_grad_clip_params
         self.critic_grad_clip_params = critic_grad_clip_params
 
         self.actor_criterion = CRITERIONS.get_from_config(
-            "criterion",
             actor_loss_params or {}
         )
         self.critic_criterion = CRITERIONS.get_from_config(
-            "criterion",
             critic_loss_params or {}
         )
 
@@ -211,8 +207,6 @@ class Algorithm:
 
     @classmethod
     def prepare_for_trainer(cls, config):
-        # hack to prevent cycle dependencies
-        from catalyst.contrib.registry import Registry
 
         config_ = config.copy()
 
@@ -229,7 +223,6 @@ class Algorithm:
 
         actror_conf = config_["actor"]
         actor = AGENTS.get_from_config(
-            "agent",
             actror_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
@@ -237,7 +230,6 @@ class Algorithm:
 
         critic_conf = config_["critic"]
         critic = AGENTS.get_from_config(
-            "agent",
             critic_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,
@@ -264,8 +256,6 @@ class Algorithm:
 
     @classmethod
     def prepare_for_sampler(cls, config):
-        # hack to prevent cycle dependencies
-        from catalyst.contrib.registry import Registry
 
         config_ = config.copy()
 
@@ -277,7 +267,6 @@ class Algorithm:
 
         agent_conf = config_["actor"]
         actor = AGENTS.get_from_config(
-            "agent",
             agent_conf,
             state_shape=actor_state_shape,
             action_size=actor_action_size,

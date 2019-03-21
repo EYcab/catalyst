@@ -1,21 +1,19 @@
-from abc import abstractmethod, ABC
-from typing import Iterable, Any, Mapping, Dict, List
 from collections import OrderedDict
-from abc import abstractmethod, ABC
-from typing import Iterable, Any, Mapping, Dict, List
 
 import torch
+from abc import abstractmethod, ABC
 from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset  # noqa F401
+from typing import Iterable, Any, Mapping, Dict, List
 
-from catalyst.dl.callbacks import Callback  # noqa F401
-from catalyst.dl.callbacks import LossCallback, OptimizerCallback, \
-    SchedulerCallback, CheckpointCallback
-from catalyst.dl.registeries import \
+from catalyst.contrib.registry import \
     MODELS, CRITERIONS, OPTIMIZERS, SCHEDULERS, CALLBACKS
-from catalyst.dl.utils import UtilsFactory
 from catalyst.dl import utils
+from catalyst.dl.callbacks import Callback  # noqa F401
+from catalyst.dl.callbacks import \
+    LossCallback, OptimizerCallback, SchedulerCallback, CheckpointCallback
 from catalyst.dl.fp16 import Fp16Wrap
+from catalyst.dl.utils import UtilsFactory
 from catalyst.utils.misc import merge_dicts
 
 _Model = nn.Module
@@ -183,8 +181,9 @@ class SupervisedExperiment(BaseExperiment):
             ]
 
             for key, value in default_callbacks:
-                if key is not None \
-                    and not any(isinstance(x, value) for x in callbacks):
+                is_already_present = any(
+                    isinstance(x, value) for x in callbacks)
+                if key is not None and not is_already_present:
                     callbacks.append(value())
         return callbacks
 
@@ -250,7 +249,7 @@ class ConfigExperiment(Experiment):
         config = self._config["model_params"]
         fp16 = config.pop("fp16", False)
 
-        model = MODELS.get_from_config("model", config)
+        model = MODELS.get_from_config(config)
 
         if fp16:
             utils.assert_fp16_available()
@@ -264,7 +263,7 @@ class ConfigExperiment(Experiment):
         criterion_params = \
             self.stages_config[stage].get("criterion_params", {})
 
-        criterion = CRITERIONS.get_from_config("criterion", criterion_params)
+        criterion = CRITERIONS.get_from_config(criterion_params)
 
         if torch.cuda.is_available():
             criterion = criterion.cuda()
@@ -272,13 +271,13 @@ class ConfigExperiment(Experiment):
 
     def get_optimizer(self, stage: str, model: nn.Module) -> _Optimizer:
         fp16 = isinstance(model, Fp16Wrap)
-        params = utils.pregare_optimizer_params(model.parameters(), fp16)
+        params = utils.prepare_optimizable_params(model.parameters(), fp16)
 
         optimizer_params = \
             self.stages_config[stage].get("optimizer_params", {})
 
         optimizer = OPTIMIZERS.get_from_config(
-            "optimizer", optimizer_params, params=params
+            optimizer_params, params=params
         )
         return optimizer
 
@@ -286,9 +285,7 @@ class ConfigExperiment(Experiment):
         config = \
             self.stages_config[stage].get("scheduler_params", {})
 
-        scheduler = SCHEDULERS.get_from_config(
-            "scheduler", config, optimizer=optimizer
-        )
+        scheduler = SCHEDULERS.get_from_config(config, optimizer=optimizer)
         return scheduler
 
     def get_loaders(self, stage: str) -> "OrderedDict[str, DataLoader]":
@@ -329,8 +326,8 @@ class ConfigExperiment(Experiment):
             self.stages_config[stage].get("callbacks_params", {}))
 
         callbacks = []
-        for key, value in callbacks_params.items():
-            callback = CALLBACKS.get_from_config("callback", value)
+        for key, config in callbacks_params.items():
+            callback = CALLBACKS.get_from_config(config)
             callbacks.append(callback)
 
         return callbacks
